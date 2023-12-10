@@ -1,0 +1,145 @@
+import tkinter as tk
+from tkinter import ttk, simpledialog
+import winsound
+import random
+
+class PomodoroTimer:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Pomodoro Timer")
+        self.master.geometry("{0}x{1}+0+0".format(self.master.winfo_screenwidth(), self.master.winfo_screenheight()))
+        self.master.attributes('-fullscreen', True)
+
+        self.get_preferences()
+
+        self.current_duration = self.pomodoro_duration
+        self.is_break = False
+        self.pomodoro_count = 0
+
+        style = ttk.Style()
+        style.configure("TLabel", font=("Helvetica", 48, "bold"))
+        style.configure("TButton", font=("Helvetica", 24))
+
+        self.label = ttk.Label(self.master, text="Pomodoro Timer", style="TLabel", anchor="center")
+        self.label.pack(pady=50)
+
+        self.timer_label = ttk.Label(self.master, text="", style="TLabel")
+        self.timer_label.pack(pady=20)
+
+        self.time_left_label = ttk.Label(self.master, text="", style="TLabel")
+        self.time_left_label.pack(pady=20)
+
+        self.loading_bar = ttk.Progressbar(self.master, length=self.master.winfo_screenwidth() - 40, mode='determinate')
+        self.loading_bar.pack(pady=20)
+
+        self.start_button = ttk.Button(self.master, text="Start", command=self.start_timer, style="TButton")
+        self.start_button.pack(pady=10)
+
+        self.stop_button = ttk.Button(self.master, text="Stop", command=self.stop_timer, style="TButton")
+        self.stop_button.pack(pady=10)
+        self.stop_button.state(['disabled'])
+
+        self.close_button = ttk.Button(self.master, text="Close", command=self.master.destroy, style="TButton")
+        self.close_button.pack(pady=10)
+
+        self.inspirational_quotes = [
+            "Success is not final, failure is not fatal: It is the courage to continue that counts. - Winston Churchill",
+            "The only way to do great work is to love what you do. - Steve Jobs",
+            "Believe you can and you're halfway there. - Theodore Roosevelt",
+            "Don't watch the clock; do what it does. Keep going. - Sam Levenson",
+            "It's not whether you get knocked down, it's whether you get up. - Vince Lombardi"
+        ]
+
+    def get_preferences(self):
+        self.pomodoro_duration = self.get_user_input("Enter Pomodoro duration in minutes:", 25) * 60
+        self.short_break_duration = self.get_user_input("Enter short break duration in minutes:", 5) * 60
+        self.long_break_duration = self.get_user_input("Enter long break duration in minutes:", 15) * 60
+        self.pomodoros_until_long_break = self.get_user_input("Enter the number of Pomodoros until long break:", 4)
+
+    def get_user_input(self, prompt, default):
+        value = simpledialog.askinteger("Input", prompt, initialvalue=default)
+        return value if value is not None else default
+
+    def start_timer(self):
+        self.start_button.state(['disabled'])
+        self.stop_button.state(['!disabled'])
+        self.run_timer()
+
+    def stop_timer(self):
+        self.start_button.state(['!disabled'])
+        self.stop_button.state(['disabled'])
+        self.master.after_cancel(self.timer_id)
+        self.reset_timer()
+
+    def run_timer(self):
+        if self.current_duration > 0:
+            self.update_timer_label()
+            self.update_loading_bar()
+            self.timer_id = self.master.after(1000, self.run_timer)
+            self.current_duration -= 1
+        else:
+            self.complete_interval()
+
+    def update_timer_label(self):
+        minutes, seconds = divmod(self.current_duration, 60)
+        self.timer_label.config(text=f"{minutes:02d}:{seconds:02d}")
+
+        # Calculate time left and next break
+        total_seconds_left = self.current_duration
+        next_break = "Pomodoro Time!"
+
+        if self.is_break:
+            total_seconds_left += self.short_break_duration
+            next_break = "Break Time!"
+
+        total_minutes_left, total_seconds_left = divmod(total_seconds_left, 60)
+        self.time_left_label.config(text=f"Time Left: {total_minutes_left:02d}:{total_seconds_left:02d}  |  Next: {next_break}")
+
+    def update_loading_bar(self):
+        total_seconds = self.pomodoro_duration if not self.is_break else self.short_break_duration
+        percentage = (self.current_duration / total_seconds) * 100
+        self.loading_bar['value'] = 100 - percentage
+
+    def complete_interval(self):
+        if not self.is_break:
+            self.pomodoro_count += 1
+
+            if self.pomodoro_count % self.pomodoros_until_long_break == 0:
+                self.current_duration = self.long_break_duration
+            else:
+                self.current_duration = self.short_break_duration
+
+            self.is_break = True
+            self.label.config(text="Break Time!", foreground="#4CAF50")
+            self.play_alarm()
+            self.show_inspirational_quote()
+        else:
+            self.current_duration = self.pomodoro_duration
+            self.is_break = False
+            self.label.config(text="Pomodoro Time!", foreground="#FF0000")
+            self.play_alarm()
+
+        self.update_timer_label()
+        self.update_loading_bar()
+        self.timer_id = self.master.after(1000, self.run_timer)
+
+    def reset_timer(self):
+        self.master.after_cancel(self.timer_id)
+        self.current_duration = self.pomodoro_duration
+        self.is_break = False
+        self.pomodoro_count = 0
+        self.label.config(text="Pomodoro Timer", foreground="#000000")
+        self.update_timer_label()
+        self.loading_bar['value'] = 0
+
+    def play_alarm(self):
+        winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS)
+
+    def show_inspirational_quote(self):
+        inspirational_quote = random.choice(self.inspirational_quotes)
+        self.label.config(text=inspirational_quote, foreground="#0000FF")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = PomodoroTimer(root)
+    root.mainloop()
